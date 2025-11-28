@@ -1,12 +1,9 @@
-name: Build and Release
+name: Build ARM64
 
 on:
   push:
     branches:
-      - main
-  release:
-    types:
-      - created
+      - master
   workflow_dispatch:
 
 jobs:
@@ -28,12 +25,12 @@ jobs:
       - name: Extract binary from container
         run: |
           CONTAINER_ID=$(docker create build)
-          docker cp $CONTAINER_ID:/usr/local/bin/mtproto-proxy ./mtproto-proxy
+          docker cp $CONTAINER_ID:/src/objs/bin/mtproto-proxy ./mtproto-proxy
           docker rm $CONTAINER_ID
+          chmod +x ./mtproto-proxy
 
-      - name: Upload release asset
-        uses: softprops/action-gh-release@v1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: ./mtproto-proxy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: mtproto-proxy-arm64
+          path: ./mtproto-proxy

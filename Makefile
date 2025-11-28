@@ -6,11 +6,22 @@ COMMIT := $(shell git log -1 --pretty=format:"%H")
 
 ARCH = -march=armv8-a
 
-SSL_STATIC_PATH = /usr/local/openssl-static
+# Allow overriding OpenSSL path via environment variable
+# Default: custom static build, fallback to system paths
+SSL_STATIC_PATH ?= /usr/local/openssl-static
 
-CFLAGS = $(ARCH) -O3 -std=gnu11 -Wall -Wno-array-bounds -fno-strict-aliasing -fno-strict-overflow -fwrapv -DAES=1 -DCOMMIT=\"${COMMIT}\" -D_GNU_SOURCE=1 -D_FILE_OFFSET_BITS=64 -I$(SSL_STATIC_PATH)/include
+# Check if custom OpenSSL exists, otherwise use system paths
+ifneq (,$(wildcard $(SSL_STATIC_PATH)/include/openssl))
+    SSL_INCLUDE = -I$(SSL_STATIC_PATH)/include
+    SSL_LIBPATH = -L$(SSL_STATIC_PATH)/lib
+else
+    SSL_INCLUDE =
+    SSL_LIBPATH =
+endif
 
-LDFLAGS = $(ARCH) -static -ggdb -lm -lrt -lz -lpthread -L$(SSL_STATIC_PATH)/lib -lcrypto -lssl -ldl -latomic
+CFLAGS = $(ARCH) -O3 -std=gnu11 -Wall -Wno-array-bounds -fno-strict-aliasing -fno-strict-overflow -fwrapv -DAES=1 -DCOMMIT=\"${COMMIT}\" -D_GNU_SOURCE=1 -D_FILE_OFFSET_BITS=64 $(SSL_INCLUDE) -flto -ffunction-sections -fdata-sections
+
+LDFLAGS = $(ARCH) -static -flto -lm -lrt -lz -lpthread $(SSL_LIBPATH) -lcrypto -lssl -ldl -latomic -Wl,--gc-sections -Wl,--as-needed
 
 LIB = ${OBJ}/lib
 CINCLUDE = -iquote common -iquote .

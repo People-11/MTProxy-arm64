@@ -8,6 +8,7 @@
 */
 
 #include <stddef.h>
+#include <stdint.h>
 #include "common/randr_compat.h"
 
 int __drand48_iterate (unsigned short int xsubi[3], struct drand48_data *buffer) {
