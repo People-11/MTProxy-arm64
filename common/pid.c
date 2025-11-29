@@ -39,8 +39,7 @@ npid_t PID;
 void init_common_PID (void) {
   if (!PID.pid) {
     int p = getpid ();
-    assert (!(p & 0xffff0000));
-    PID.pid = p;
+    PID.pid = (unsigned short)p;
   }
   if (!PID.utime) {
     PID.utime = time (0);
@@ -80,8 +79,8 @@ int process_id_is_newer (struct process_id *a, struct process_id *b) {
   assert (!memcmp (a, b, 6));
   if (a->utime < b->utime) { return 0; }
   if (a->utime > b->utime) { return 1; }
-  int x = (a->pid - b->pid) & 0x7fff;
-  if (x && x <= 0x3fff) { return 1; }
+  int x = (a->pid - b->pid) & 0xFFFF;
+  if (x && x <= 0x7FFF) { return 1; }
   return 0;
 }
 
