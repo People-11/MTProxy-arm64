@@ -303,7 +303,7 @@ static unsigned crc32c_table0[256] = {
 #define CRC32C_REFLECTED_X8191 0xcdc220ddll
 #define CRC32C_REFLECTED_X16383 0x1acaec54ll
 
-#ifdef __LP64__
+#if defined(__x86_64__)
 static unsigned crc32c_partial_sse42 (const void *data, long len, unsigned crc) {
   const char *p = data;
   unsigned long long c = crc;
@@ -527,7 +527,7 @@ static unsigned crc32c_partial_sse42_clmul (const void *data, long len, unsigned
   return crc;
 }
 
-#else
+#elif defined(__i386__)
 static unsigned crc32c_partial_sse42 (const void *data, long len, unsigned crc) {
   const char *p = data;
   while ((((uintptr_t) p) & 3) && (len > 0)) {
@@ -614,6 +614,7 @@ static unsigned crc32c_combine_generic (unsigned crc1, unsigned crc2, int64_t le
   return gf32_combine_generic (crc32c_powers, crc1, len2) ^ crc2;
 }
 
+#if defined(__x86_64__) || defined(__i386__)
 static unsigned crc32c_combine_clmul (unsigned crc1, unsigned crc2, int64_t len2) {
   static unsigned int crc32c_powers[252] __attribute__ ((aligned(16)));
   if (len2 <= 0) {
@@ -639,11 +640,33 @@ static unsigned crc32c_combine_clmul (unsigned crc1, unsigned crc2, int64_t len2
   );
   return crc ^ ((unsigned) (T >> 32)) ^ crc2;
 }
+#endif
+
+#if defined(__aarch64__)
+#include <arm_acle.h>
+#include <string.h>
+#include <sys/auxv.h>
+
+__attribute__ ((target ("+crc")))
+static unsigned crc32c_partial_armv8 (const void *data, long len, unsigned crc) {
+  const unsigned char *p = data;
+  for (; len >= 8; p += 8, len -= 8) {
+    uint64_t v;
+    memcpy (&v, p, 8);
+    crc = __crc32cd (crc, v);
+  }
+  for (; len > 0; p++, len--) {
+    crc = __crc32cb (crc, *p);
+  }
+  return crc;
+}
+#endif
 
 static void crc32c_init (void) __attribute__ ((constructor));
 void crc32c_init (void) {
-  kdb_cpuid_t *p = kdb_cpuid ();
   compute_crc32c_combine = &crc32c_combine_generic;
+#if defined(__x86_64__) || defined(__i386__)
+  kdb_cpuid_t *p = kdb_cpuid ();
   if (p->ecx & (1 << 20)) {
     crc32c_partial = crc32c_partial_sse42;
 #ifdef __LP64__
@@ -652,9 +675,17 @@ void crc32c_init (void) {
       compute_crc32c_combine = &crc32c_combine_clmul;
     }
 #endif
-  } else {
+  } else
+#endif
+  {
     crc32c_partial = &crc32c_partial_four_tables;
   }
+#if defined(__aarch64__)
+  if (getauxval (AT_HWCAP) & HWCAP_CRC32) {
+    crc32c_partial = crc32c_partial_armv8;
+    assert ((crc32c_partial ("123456789", 9, -1) ^ -1) == 0xe3069283);  // standard CRC-32C check value
+  }
+#endif
 }
 
 crc32_partial_func_t crc32c_partial;

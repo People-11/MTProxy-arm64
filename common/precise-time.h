@@ -34,6 +34,13 @@ static __inline__ unsigned long long rdtsc(void) {
   __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
+#else
+// nanoseconds keep the tick-based thresholds in callers close to their x86 meaning
+static __inline__ unsigned long long rdtsc(void) {
+  struct timespec T;
+  clock_gettime (CLOCK_MONOTONIC, &T);
+  return T.tv_sec * 1000000000ULL + T.tv_nsec;
+}
 #endif
 
 /* net-event.h */
