@@ -1,0 +1,27 @@
+name: Build ARM64
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build static binary
+        run: docker build --build-arg COMMIT=${{ github.sha }} --output out .
+
+      - name: Smoke test
+        run: |
+          ls -l out/mtproto-proxy
+          file out/mtproto-proxy
+          out/mtproto-proxy --help > help.txt 2>&1 || true
+          head -5 help.txt
+          grep -q "usage:" help.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mtproto-proxy-arm64
+          path: out/mtproto-proxy

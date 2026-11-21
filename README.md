@@ -1,3 +1,23 @@
+# MTProxy for ARM64
+
+Fork of [TelegramMessenger/MTProxy](https://github.com/TelegramMessenger/MTProxy) that builds a small, fully static
+`aarch64` binary (musl + minimal OpenSSL 3.5 LTS, UPX `--ultra-brute`). Runs on any AArch64 Linux (glibc or musl).
+
+Prebuilt binaries: GitHub Actions artifacts (`mtproto-proxy-arm64`).
+
+Build on an arm64 host with Docker (`--output` extracts just the binary):
+```bash
+docker build --output out .
+./out/mtproto-proxy --help
+```
+
+Changes from upstream:
+- x86-only code (cpuid, SSE4.2/CLMUL CRC, `rdtsc`, `mfence`) guarded; portable fallbacks on other architectures
+- per-thread PRNG uses POSIX `nrand48`/`jrand48`/`erand48` (musl has no `*rand48_r`)
+- `backtrace()` only with glibc
+- hardware CRC32/CRC32C on AArch64 (runtime-detected via HWCAP)
+- build flags: `-O3`, LTO, section GC, static, stripped
+
 # MTProxy
 Simple MT-Proto proxy
 

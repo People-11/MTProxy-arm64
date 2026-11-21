@@ -2,7 +2,7 @@ OBJ	=	objs
 DEP	=	dep
 EXE = ${OBJ}/bin
 
-COMMIT := $(shell git log -1 --pretty=format:"%H")
+COMMIT := $(shell git log -1 --pretty=format:"%H" 2>/dev/null)
 
 ARCH =
 ifeq ($m, 32)
@@ -11,9 +11,14 @@ endif
 ifeq ($m, 64)
 ARCH = -m64
 endif
+ifneq (,$(filter x86_64 i%86,$(shell uname -m)))
+ARCH += -mpclmul -march=core2 -mfpmath=sse -mssse3
+endif
 
-CFLAGS = $(ARCH) -O3 -std=gnu11 -Wall -Wno-array-bounds -mpclmul -march=core2 -mfpmath=sse -mssse3 -fno-strict-aliasing -fno-strict-overflow -fwrapv -DAES=1 -DCOMMIT=\"${COMMIT}\" -D_GNU_SOURCE=1 -D_FILE_OFFSET_BITS=64
-LDFLAGS = $(ARCH) -ggdb -rdynamic -lm -lrt -lcrypto -lz -lpthread -lcrypto
+# static build: LTO + section GC, no unwind tables, stripped (UPX compresses afterwards)
+OPT = -O3 -flto -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables
+CFLAGS = $(ARCH) $(OPT) -std=gnu11 -Wall -Wno-array-bounds -fno-strict-aliasing -fno-strict-overflow -fwrapv -DAES=1 -DCOMMIT=\"${COMMIT}\" -D_GNU_SOURCE=1 -D_FILE_OFFSET_BITS=64
+LDFLAGS = $(ARCH) $(OPT) -static -s -Wl,--gc-sections -lm -lrt -lcrypto -lpthread -latomic
 
 LIB = ${OBJ}/lib
 CINCLUDE = -iquote common -iquote .
@@ -94,7 +99,7 @@ ${EXE}/mtproto-proxy:	${OBJ}/mtproto/mtproto-proxy.o ${OBJ}/mtproto/mtproto-conf
 	${CC} -o $@ $^ ${LIB}/libkdb.a ${LDFLAGS}
 
 ${LIB}/libkdb.a: ${LIB_OBJS}
-	rm -f $@ && ar rcs $@ $^
+	rm -f $@ && gcc-ar rcs $@ $^
 
 clean:
 	rm -rf ${OBJ} ${DEP} ${EXE} || true
